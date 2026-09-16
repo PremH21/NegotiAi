@@ -1,0 +1,12 @@
+## Guaranteed-safe demo path (no internet/API key needed)
+streamlit>=1.32
+
+## Optional: natural-language LLM layer
+anthropic>=0.30.0
+openai>=1.30.0
+
+## Optional: advanced backend + real LangGraph orchestration
+fastapi>=0.110
+uvicorn>=0.29
+pydantic>=2.6
+langgraph>=0.1.0

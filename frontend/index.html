@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NegotiAI — Autonomous Negotiation Agent</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0a0e1f; --navy2: #0d1330; --panel: #141a38; --panel2: #181f42;
+    --orange: #e8a23a; --orange-soft: #f4c268; --red: #e8615a; --green: #3ddc84;
+    --text: #e9ebf5; --muted: #8b93bd; --line: #232a52;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: 'Inter', -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(232,162,58,0.10), transparent),
+      radial-gradient(ellipse 900px 500px at 100% 0%, rgba(232,97,90,0.08), transparent),
+      var(--navy);
+    color: var(--text); min-height: 100vh;
+  }
+  h1, h2, h3, .display { font-family: 'Fraunces', Georgia, serif; }
+
+  nav {
+    padding: 16px 32px; border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+    position: sticky; top: 0; background: rgba(10,14,31,0.85); backdrop-filter: blur(8px); z-index: 10;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-mark { width: 28px; height: 28px; }
+  .brand-name { font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px; letter-spacing: -0.01em; }
+  #healthDot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 7px; background: #4a5180; }
+  #healthDot.ok { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  #healthDot.off { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
+  #healthIndicator { font-size: 12px; color: var(--muted); }
+
+  .hero { max-width: 900px; margin: 0 auto; padding: 64px 20px 24px; text-align: center; }
+  .hero-mark { width: 140px; height: 80px; margin: 0 auto 20px; }
+  .hero h1.display { font-size: clamp(40px, 6vw, 64px); font-weight: 500; line-height: 1.02; margin: 0 0 14px; }
+  .hero p.tagline { color: var(--muted); font-size: 17px; max-width: 480px; margin: 0 auto; line-height: 1.5; }
+  .hero p.tagline .who { color: var(--text); }
+
+  .hero-mark, .hero h1.display, .hero p.tagline {
+    opacity: 0; animation: heroRise .7s cubic-bezier(.16,1,.3,1) forwards;
+  }
+  .hero-mark { animation-delay: .05s; }
+  .hero h1.display { animation-delay: .18s; }
+  .hero p.tagline { animation-delay: .32s; }
+  @keyframes heroRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .node { animation: pulse 2.6s ease-in-out infinite; transform-origin: center; }
+  .node.right { animation-delay: .5s; }
+  @keyframes pulse { 0%, 100% { r: 15; opacity: .9; } 50% { r: 17; opacity: 1; } }
+  .spark-line { stroke-dasharray: 60; stroke-dashoffset: 60; animation: draw 1.1s .6s ease-out forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 8px 20px 80px; }
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 22px; justify-content: center; }
+  select, button {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    padding: 11px 18px; border-radius: 9px; font-size: 14px; font-family: inherit; cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  select:hover, button:hover { border-color: #3a4278; }
+  button.primary { background: var(--orange); color: #1a1a2e; font-weight: 600; border: none; }
+  button.primary:hover { background: var(--orange-soft); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .step-ticker { display: flex; gap: 8px; margin: 4px 0 22px; font-size: 11px; color: var(--muted); justify-content: center; }
+  .step-ticker span { padding: 4px 12px; border-radius: 12px; background: var(--panel); letter-spacing: 0.04em; border: 1px solid var(--line); }
+  .step-ticker span.active { background: var(--orange); color: #1a1a2e; font-weight: 700; border-color: var(--orange); }
+
+  .disclosure {
+    font-size: 12.5px; color: var(--muted); border-left: 3px solid var(--orange); padding: 8px 12px;
+    margin: 0 0 20px; background: rgba(232,162,58,0.05); border-radius: 0 6px 6px 0;
+  }
+  #goalLine { font-size: 16px; color: #d4d8f0; margin-bottom: 16px; font-family: 'Fraunces', serif; font-weight: 500; }
+
+  .bubble-row { display: flex; margin: 10px 0; }
+  .bubble-row.cp { justify-content: flex-end; }
+  .bubble {
+    max-width: 72%; padding: 13px 17px; border-radius: 14px; font-size: 14.5px; line-height: 1.45;
+    opacity: 0; transform: translateY(6px); animation: rise .35s forwards;
+  }
+  @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+  .bubble .who { font-size: 10.5px; font-weight: 700; opacity: 0.75; display: block; margin-bottom: 4px; letter-spacing: .03em; text-transform: uppercase; }
+  .bubble.agent { background: linear-gradient(135deg, var(--orange), var(--orange-soft)); color: #1a1a2e; }
+  .bubble.cp { background: linear-gradient(135deg, var(--red), #f27f78); color: #fff; }
+  .tactic-badge {
+    display: inline-block; margin-top: 7px; font-size: 11px; padding: 3px 10px;
+    border-radius: 10px; background: rgba(20,26,56,0.85); color: var(--orange); border: 1px solid var(--orange);
+  }
+  .outcome-card {
+    margin-top: 24px; background: linear-gradient(135deg, var(--orange), var(--orange-soft));
+    color: #1a1a2e; padding: 22px; border-radius: 14px;
+  }
+  .outcome-card h3.display { margin: 0 0 10px; font-size: 22px; font-weight: 600; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .stat { background: rgba(0,0,0,0.08); padding: 11px 13px; border-radius: 9px; }
+  .stat b { display: block; font-size: 21px; font-family: 'Fraunces', serif; }
+  .history-panel { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--line); }
+  .history-panel h2 { font-size: 15px; color: #cfd3ef; font-weight: 600; font-family: 'Inter', sans-serif; }
+  .history-stats { display: flex; gap: 14px; flex-wrap: wrap; }
+  .history-stats .box { background: var(--panel); border: 1px solid var(--line); padding: 14px 18px; border-radius: 11px; min-width: 150px; }
+  .history-stats .box b { font-size: 23px; color: var(--orange); display: block; font-family: 'Fraunces', serif; }
+  .history-stats .box span { font-size: 12px; color: var(--muted); }
+  #confettiCanvas { position: fixed; top: 0; left: 0; pointer-events: none; z-index: 999; }
+  .intro-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; margin-bottom: 24px; }
+  .intro-card p.lead { color: #c7cbe8; font-size: 14.5px; margin: 0 0 12px; }
+  .intro-card ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 13.5px; line-height: 1.9; }
+</style>
+</head>
+<body>
+<canvas id="confettiCanvas"></canvas>
+
+<nav>
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="14" cy="20" r="12" fill="#e8a23a"/>
+      <circle cx="46" cy="20" r="12" fill="#e8615a"/>
+      <line x1="26" y1="20" x2="34" y2="20" stroke="#e9ebf5" stroke-width="2"/>
+    </svg>
+    <span class="brand-name">NegotiAI</span>
+  </div>
+  <div id="healthIndicator">
+    <span id="healthDot"></span><span id="healthText">checking backend...</span>
+  </div>
+</nav>
+
+<div class="hero">
+  <svg class="hero-mark" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+    <line class="spark-line" x1="85" y1="50" x2="115" y2="50" stroke="#e9ebf5" stroke-width="2.5" stroke-linecap="round"/>
+    <circle class="node left" cx="55" cy="50" r="15" fill="#e8a23a"/>
+    <circle class="node right" cx="145" cy="50" r="15" fill="#e8615a"/>
+  </svg>
+  <h1 class="display">Your agent. Their agent.<br>One outcome.</h1>
+  <p class="tagline">NegotiAI sends an <span class="who">autonomous negotiation agent</span> to argue your case against company retention bots — reading their tactics, holding its ground, turn by turn.</p>
+</div>
+
+<div class="container">
+  <div class="intro-card">
+    <p class="lead">Live demo — Team Kindralis, TSM·TECHNOVA 2026</p>
+    <ul>
+      <li>Multi-turn negotiation loop: Plan → Act → Observe → Adapt</li>
+      <li>Live tactic detection & counter-strategy on every company reply</li>
+      <li>Same engine works across subscriptions, billing, and insurance — pick a domain below</li>
+    </ul>
+  </div>
+
+  <div class="controls">
+    <select id="domainSelect"><option>Loading domains...</option></select>
+    <button class="primary" id="runBtn">▶ Run Negotiation</button>
+    <button id="autoBtn">🔁 Auto-demo (cycle all domains)</button>
+    <button id="downloadBtn" disabled>⬇ Download transcript</button>
+  </div>
+
+  <div class="step-ticker" id="stepTicker">
+    <span data-step="plan">PLAN</span>
+    <span data-step="act">ACT</span>
+    <span data-step="observe">OBSERVE</span>
+    <span data-step="adapt">ADAPT</span>
+  </div>
+
+  <div class="disclosure">⚠ Every negotiation opens with an explicit AI disclosure line — the agent never impersonates a human.</div>
+
+  <div id="goalLine"></div>
+  <div id="transcript"></div>
+  <div id="outcome"></div>
+
+  <div class="history-panel">
+    <h2>Session history — proof of scale across runs</h2>
+    <div class="history-stats">
+      <div class="box"><b id="histSessions">0</b><span>Sessions run</span></div>
+      <div class="box"><b id="histValue">₹0</b><span>Total value protected</span></div>
+      <div class="box"><b id="histRate">0%</b><span>Resolution rate</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+  ? "http://localhost:8000"
+  : "https://YOUR-DEPLOYED-BACKEND-URL"; // set this after deploying backend (see README)
+
+let currentTranscript = [];
+let autoDemoRunning = false;
+
+async function checkHealth() {
+  const dot = document.getElementById("healthDot");
+  const text = document.getElementById("healthText");
+  try {
+    const r = await fetch(`${API}/api/health`);
+    const d = await r.json();
+    dot.className = d.llm_mode ? "ok" : "off";
+    text.textContent = d.llm_mode ? `Backend online — LLM mode (${d.llm_mode})` : "Backend online — offline/zero-cost mode";
+  } catch (e) {
+    dot.className = "";
+    text.textContent = "Backend not reachable — start it with: uvicorn backend.main:app --port 8000";
+  }
+}
+
+async function loadDomains() {
+  const sel = document.getElementById("domainSelect");
+  try {
+    const r = await fetch(`${API}/api/domains`);
+    const d = await r.json();
+    sel.innerHTML = "";
+    for (const [key, val] of Object.entries(d)) {
+      const opt = document.createElement("option");
+      opt.value = key; opt.textContent = val.title;
+      sel.appendChild(opt);
+    }
+  } catch (e) {
+    sel.innerHTML = '<option value="">Backend offline</option>';
+  }
+}
+
+function sleep(ms) { return new Promise(res => setTimeout(res, ms)); }
+
+async function animateStep(name) {
+  document.querySelectorAll(".step-ticker span").forEach(s => s.classList.remove("active"));
+  const el = document.querySelector(`.step-ticker span[data-step="${name}"]`);
+  if (el) el.classList.add("active");
+  await sleep(250);
+}
+
+async function runNegotiation() {
+  const domain = document.getElementById("domainSelect").value;
+  if (!domain) return;
+  document.getElementById("runBtn").disabled = true;
+  document.getElementById("transcript").innerHTML = "";
+  document.getElementById("outcome").innerHTML = "";
+  document.getElementById("goalLine").textContent = "";
+  document.getElementById("downloadBtn").disabled = true;
+
+  let data;
+  try {
+    const r = await fetch(`${API}/api/negotiate/run`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({domain_key: domain})
+    });
+    data = await r.json();
+  } catch (e) {
+    document.getElementById("transcript").innerHTML = "<p>Could not reach backend. Is uvicorn running?</p>";
+    document.getElementById("runBtn").disabled = false;
+    return;
+  }
+
+  currentTranscript = data.transcript;
+  document.getElementById("goalLine").textContent = "🎯 " + data.outcome.goal;
+
+  const box = document.getElementById("transcript");
+  for (const turn of data.transcript) {
+    await animateStep(turn.speaker === "Negotiation Agent" ? (turn.tactic ? "adapt" : "plan") : "act");
+    const row = document.createElement("div");
+    row.className = "bubble-row " + (turn.speaker === "Company Agent" ? "cp" : "");
+    const bubble = document.createElement("div");
+    bubble.className = "bubble " + (turn.speaker === "Company Agent" ? "cp" : "agent");
+    bubble.innerHTML = `<span class="who">${turn.speaker}</span>${turn.text}` +
+      (turn.tactic ? `<div class="tactic-badge">⚡ ${turn.tactic}</div>` : "");
+    row.appendChild(bubble);
+    box.appendChild(row);
+    box.scrollIntoView({behavior: "smooth", block: "end"});
+    await sleep(500);
+  }
+
+  const o = data.outcome;
+  document.getElementById("outcome").innerHTML = `
+    <div class="outcome-card">
+      <h3 class="display">${o.resolved ? "Goal Achieved" : "Best Achievable Outcome Reached"}</h3>
+      <div class="grid2">
+        <div class="stat"><b>${o.turns}</b>Turns taken</div>
+        <div class="stat"><b>₹${o.estimated_value_saved}</b>Value protected</div>
+      </div>
+    </div>`;
+  if (o.resolved) fireConfetti();
+
+  document.getElementById("downloadBtn").disabled = false;
+  document.getElementById("runBtn").disabled = false;
+  document.querySelectorAll(".step-ticker span").forEach(s => s.classList.remove("active"));
+  loadHistory();
+}
+
+function downloadTranscript() {
+  const text = currentTranscript.map(t => `${t.speaker}: ${t.text}`).join("\n");
+  const blob = new Blob([text], {type: "text/plain"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "negotiai_transcript.txt";
+  a.click();
+}
+
+async function loadHistory() {
+  try {
+    const r = await fetch(`${API}/api/history`);
+    const d = await r.json();
+    document.getElementById("histSessions").textContent = d.total_sessions;
+    document.getElementById("histValue").textContent = "₹" + d.total_value_protected;
+    document.getElementById("histRate").textContent = Math.round(d.resolved_rate * 100) + "%";
+  } catch (e) { /* backend offline, ignore */ }
+}
+
+async function autoDemo() {
+  autoDemoRunning = !autoDemoRunning;
+  document.getElementById("autoBtn").textContent = autoDemoRunning ? "⏸ Stop auto-demo" : "🔁 Auto-demo (cycle all domains)";
+  const sel = document.getElementById("domainSelect");
+  while (autoDemoRunning) {
+    for (const opt of sel.options) {
+      if (!autoDemoRunning) break;
+      sel.value = opt.value;
+      await runNegotiation();
+      await sleep(1800);
+    }
+  }
+}
+
+function fireConfetti() {
+  const canvas = document.getElementById("confettiCanvas");
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  const ctx = canvas.getContext("2d");
+  const colors = ["#e8a23a", "#e8615a", "#3ddc84", "#ffffff"];
+  const pieces = Array.from({length: 120}, () => ({
+    x: Math.random() * canvas.width, y: -20 - Math.random() * 200,
+    vy: 2 + Math.random() * 3, vx: -1 + Math.random() * 2,
+    size: 4 + Math.random() * 5, color: colors[Math.floor(Math.random() * colors.length)],
+    rot: Math.random() * 360
+  }));
+  let frame = 0;
+  function tick() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    pieces.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.rot += 4;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot * Math.PI / 180);
+      ctx.fillStyle = p.color; ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
+      ctx.restore();
+    });
+    frame++;
+    if (frame < 90) requestAnimationFrame(tick);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  tick();
+}
+
+document.getElementById("runBtn").addEventListener("click", runNegotiation);
+document.getElementById("downloadBtn").addEventListener("click", downloadTranscript);
+document.getElementById("autoBtn").addEventListener("click", autoDemo);
+
+checkHealth();
+loadDomains();
+loadHistory();
+setInterval(checkHealth, 5000);
+</script>
+</body>
+</html>

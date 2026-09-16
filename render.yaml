@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: negotiai-backend
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # Both optional — the engine runs fully offline with neither set.
+      # Add in Render's dashboard only if you want LLM-paraphrased language.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
