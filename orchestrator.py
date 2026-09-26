@@ -34,10 +34,10 @@ def run_negotiation(domain_key: str, custom_fields: dict = None):
     last_line = opening
     resolved = False
     for _ in range(len(domain["ladder"])):
-        cp_line = cp_agent.respond(last_line)
-        transcript.append({"speaker": "Company Agent", "text": cp_line, "tactic": None})
+        cp_result = cp_agent.respond(last_line)
+        transcript.append({"speaker": "Company Agent", "text": cp_result["display"], "tactic": None})
 
-        result = neg_agent.respond_to(cp_line)
+        result = neg_agent.respond_to(cp_result["raw"], cp_result["display"])
         transcript.append({
             "speaker": "Negotiation Agent",
             "text": result["line"],

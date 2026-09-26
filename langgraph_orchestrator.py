@@ -35,6 +35,7 @@ class NegotiationState(TypedDict):
     neg_agent: NegotiationAgent
     cp_agent: CounterpartyAgent
     last_line: str
+    last_raw_line: str
 
 
 def plan_node(state: NegotiationState) -> NegotiationState:
@@ -48,15 +49,16 @@ def plan_node(state: NegotiationState) -> NegotiationState:
 
 def act_node(state: NegotiationState) -> NegotiationState:
     """ACT: the counterparty agent reacts to the last line (its escalation ladder)."""
-    cp_line = state["cp_agent"].respond(state["last_line"])
-    state["transcript"].append({"speaker": "Company Agent", "text": cp_line, "tactic": None})
-    state["last_line"] = cp_line
+    cp_result = state["cp_agent"].respond(state["last_line"])
+    state["transcript"].append({"speaker": "Company Agent", "text": cp_result["display"], "tactic": None})
+    state["last_line"] = cp_result["display"]
+    state["last_raw_line"] = cp_result["raw"]
     return state
 
 
 def observe_adapt_node(state: NegotiationState) -> NegotiationState:
     """OBSERVE + ADAPT: negotiation agent detects the tactic and counters it."""
-    result = state["neg_agent"].respond_to(state["last_line"])
+    result = state["neg_agent"].respond_to(state["last_raw_line"], state["last_line"])
     state["transcript"].append({
         "speaker": "Negotiation Agent",
         "text": result["line"],
@@ -114,6 +116,7 @@ def run_negotiation_langgraph(domain_key: str, custom_fields: dict = None):
         "neg_agent": NegotiationAgent(goal_text),
         "cp_agent": CounterpartyAgent(domain["ladder"], fill_values),
         "last_line": "",
+        "last_raw_line": "",
     }
 
     app_graph = build_graph()

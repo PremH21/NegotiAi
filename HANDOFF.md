@@ -19,17 +19,31 @@ reached the **National Grand Finale** using this prototype.
 
 ## Current status (update this line when you make major changes)
 
-**Last known state: fully working prototype, tested end to end on the
-author's own MacBook, used as the live demo at the Zonal Evaluation. Grand
-Finale prep in progress. ML dataset expanded from 117 to 215 examples and
-the classifier pipeline was tuned via GridSearchCV (cross-validation only,
-no test-set leakage) — now 78.6% CV / 79.6% held-out, up from 73.5%/73.3%.
-`langgraph_orchestrator.py` has now been genuinely installed and executed
-(previously it was untested) — 19/19 tests passing, 15/15 stress-test runs
-resolved across all 3 domains. See `ML_CLASSIFIER.md` for the honest
-before/after and the weakest-class caveat (`delay_tactic`, 33% recall). The
-deck's Slide 4 still describes Ollama/Llama/LangGraph-as-primary-loop
-inaccurately — needs a rewrite to match this table before presenting.**
+**Last known state: fully working prototype, deployed end-to-end and
+verified live — backend on Render (negotiai-backend.onrender.com), frontend
+on Netlify (public URL claimed, not the 1-hour temp link). Domains expanded
+from 3 to 20 (see `domains.py`); a real classification-order bug was found
+and fixed in `tactics.py` (a closing line could be misread as a mid-negotiation
+tactic due to dict-iteration order — final_capitulation patterns are now
+checked first). Frontend polish: hardcoded hackathon banner removed, health
+indicator now shows a real "Rule-based engine" vs "Live LLM reasoning" badge,
+per-turn thinking animation added so responses don't dump instantly. ML
+dataset expanded from 117 to 215 examples and the classifier pipeline was
+tuned via GridSearchCV (cross-validation only, no test-set leakage) — now
+78.6% CV / 79.6% held-out, up from 73.5%/73.3%. `langgraph_orchestrator.py`
+has been genuinely installed and executed — 19/19 tests passing across 20
+domains. See `ML_CLASSIFIER.md` for the honest before/after and the
+weakest-class caveat (`delay_tactic`, 33% recall).**
+
+**STILL OPEN — highest priority for whoever picks this up next:**
+`ANTHROPIC_API_KEY` is already set on Render, but until 2026-09-26 it was
+having zero effect (see the model-name bug above) — every deployed run was
+silently 100% template text. That's now fixed in code; **the fix must be
+pushed and Render must be redeployed** for the live site to actually show
+real LLM-generated dialogue. After confirming that live, the two remaining
+items are the user survey (`GRAND_FINALE_PREP.md` criterion #2) and fixing
+the deck's Slide 4, which still describes Ollama/Llama/LangGraph-as-primary-
+loop inaccurately — it needs a rewrite to match this file's table.
 
 ## What is REAL and TESTED — do not casually rewrite these
 
@@ -38,7 +52,7 @@ inaccurately — needs a rewrite to match this table before presenting.**
 | `tactics.py` | Rule-based tactic detection + counter-strategy | `test_engine.py` — 100% of counterparty lines classified correctly across all domains |
 | `domains.py` | Escalation ladders per negotiation domain | Tested for required shape + domain-injection test |
 | `agents.py` | NegotiationAgent + CounterpartyAgent, safe LLM fallback | Ran live on author's machine, LLM fallback confirmed working with no key set |
-| `orchestrator.py` | Plan→Act→Observe→Adapt loop | All 3 domains reach resolved outcome, confirmed live |
+| `orchestrator.py` | Plan→Act→Observe→Adapt loop | All 20 domains reach resolved outcome, confirmed live |
 | `backend/main.py` | FastAPI + SQLite REST API | Health check, domain list, and full negotiation run all confirmed working live via browser |
 | `frontend/index.html` | Web UI | Confirmed working live — screenshot evidence exists of a full negotiation run with correct tactic badges |
 | `app.py` | Streamlit fallback demo | Confirmed working live — screenshot evidence of a successful run |
@@ -47,9 +61,20 @@ inaccurately — needs a rewrite to match this table before presenting.**
 
 ## What is NOT yet verified — say so honestly if asked
 
-- **Deployment** (Render/GitHub Pages/Netlify, per `DEPLOYMENT.md`) has
-  **not been executed** — the files (`render.yaml`, deploy instructions)
-  are prepared but no live public URL has been confirmed working yet.
+- **Deployment is done and public** (Render backend + Netlify frontend, claimed/permanent URL, not the 1-hour temp link) — this earlier caveat is resolved.
+- **A real bug was found and fixed 2026-09-26: the Anthropic model string was
+  invalid (`claude-sonnet-4-6`, not a real model), so every LLM paraphrase
+  call was silently throwing and falling back to the raw template — meaning
+  every "AI" line was word-for-word identical to the deterministic template
+  even with a valid API key configured.** Fixed to a real current model
+  (`claude-haiku-4-5-20251001`), added temperature for natural variation, and
+  logged failures to stderr instead of swallowing them silently, so this
+  class of bug is visible in Render logs next time. Also fixed a related
+  correctness risk: tactic detection now runs on the raw template text
+  (`respond()` returns `{"raw", "display"}`), not the LLM-paraphrased text —
+  otherwise natural rewording could accidentally drop a keyword the regex
+  patterns depend on and silently misclassify. If you add more LLM
+  paraphrasing anywhere, keep this raw/display separation.
 - **The ML classifier's training data is synthetic** (hand-written by the
   team), not real negotiation transcripts. The 78.6%/79.6% figures are real
   and reproducible, but say nothing about real-world accuracy yet. One

@@ -43,23 +43,29 @@ def _llm_paraphrase(system_role: str, instruction: str, fallback_text: str) -> s
     try:
         if LLM_MODE == "anthropic":
             resp = _client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=80,
+                model="claude-haiku-4-5-20251001",
+                max_tokens=120,
+                temperature=0.9,
                 system=system_role,
                 messages=[{"role": "user", "content": instruction}],
             )
-            return resp.content[0].text.strip()
+            text = resp.content[0].text.strip()
+            return text if text else fallback_text
         elif LLM_MODE == "openai":
             resp = _client.chat.completions.create(
                 model="gpt-4o-mini",
-                max_tokens=80,
+                max_tokens=120,
+                temperature=0.9,
                 messages=[
                     {"role": "system", "content": system_role},
                     {"role": "user", "content": instruction},
                 ],
             )
-            return resp.choices[0].message.content.strip()
-    except Exception:
+            text = resp.choices[0].message.content.strip()
+            return text if text else fallback_text
+    except Exception as e:
+        import sys
+        print(f"[negotiai] LLM paraphrase failed, using template fallback: {e}", file=sys.stderr)
         return fallback_text
     return fallback_text
 
@@ -74,20 +80,24 @@ class CounterpartyAgent:
         self.fill_values = fill_values
         self.turn = 0
 
-    def respond(self, negotiation_agent_line: str) -> str:
+    def respond(self, negotiation_agent_line: str) -> dict:
         if self.turn >= len(self.ladder):
             self.turn = len(self.ladder) - 1
         template = self.ladder[self.turn]
-        line = template.format(**self.fill_values)
+        raw_line = template.format(**self.fill_values)
         self.turn += 1
 
-        paraphrased = _llm_paraphrase(
-            system_role="You role-play a company retention/claims bot. Stay in character, "
-                        "keep it under 30 words, keep the same meaning and any numbers exactly.",
-            instruction=f"Rewrite this line naturally, same meaning and numbers: {line}",
-            fallback_text=line,
+        display_line = _llm_paraphrase(
+            system_role="You role-play a company retention/claims call-center bot handling a "
+                        "real customer dispute. Respond in your own natural words with a distinct "
+                        "personality for this conversation — vary your phrasing, tone, and sentence "
+                        "structure each time. You MUST keep every number, amount, and currency symbol "
+                        "exactly as given, and keep the core offer/decision unchanged. 1-2 sentences.",
+            instruction=f"The customer just said: \"{negotiation_agent_line}\"\n\n"
+                        f"Respond in character with this exact substance (reword naturally, keep all numbers exact): {raw_line}",
+            fallback_text=raw_line,
         )
-        return paraphrased
+        return {"raw": raw_line, "display": display_line}
 
 
 class NegotiationAgent:
@@ -103,9 +113,9 @@ class NegotiationAgent:
         self.turn += 1
         return self.DISCLOSURE + self.goal_text
 
-    def respond_to(self, counterparty_line: str) -> dict:
-        """Observe the counterparty's line, detect tactic, adapt, and act."""
-        tactic = detect_tactic(counterparty_line)
+    def respond_to(self, counterparty_raw_line: str, counterparty_display_line: str) -> dict:
+        """Observe the counterparty's (raw) line, detect tactic, adapt, and act."""
+        tactic = detect_tactic(counterparty_raw_line)
         strategy = COUNTER_STRATEGY_TEXT[tactic["counter"]]
 
         if tactic["key"] == "final_capitulation":
@@ -125,9 +135,14 @@ class NegotiationAgent:
 
         self.turn += 1
         line = _llm_paraphrase(
-            system_role="You role-play a calm, firm consumer-advocacy negotiation AI. "
-                        "Keep it under 30 words, polite but unyielding.",
-            instruction=f"Rewrite this line naturally, same meaning: {fallback}",
+            system_role="You role-play a calm, sharp consumer-advocacy negotiation AI representing "
+                        "a customer. You've just detected the company used a "
+                        f"'{tactic['label']}' tactic. Respond firmly and naturally in your own words — "
+                        "vary your phrasing each time, you may briefly name the tactic you noticed or "
+                        "reference your consumer rights if it fits naturally. Stay polite but unyielding. "
+                        "1-2 sentences, under 35 words.",
+            instruction=f"The company just said: \"{counterparty_display_line}\"\n\n"
+                        f"Respond in character with this exact substance (reword naturally): {fallback}",
             fallback_text=fallback,
         )
         return {"line": line, "tactic": tactic, "strategy": strategy}
