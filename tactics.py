@@ -63,9 +63,23 @@ COUNTER_STRATEGY_TEXT = {
 
 
 def detect_tactic(counterparty_text: str) -> dict:
-    """Return the first matching tactic dict for a piece of counterparty text."""
+    """Return the first matching tactic dict for a piece of counterparty text.
+
+    final_capitulation is checked first: a closing line like "Confirmed, the
+    penalty has been waived" would otherwise get misread as a fee_threat
+    (because of the word "penalty") purely due to dict ordering. A genuine
+    resolution should never be shadowed by an incidental keyword match.
+    """
     text = counterparty_text.lower()
+
+    final = TACTIC_LIBRARY["final_capitulation"]
+    for pattern in final["patterns"]:
+        if re.search(pattern, text):
+            return {"key": "final_capitulation", "label": final["label"], "counter": final["counter"]}
+
     for key, tactic in TACTIC_LIBRARY.items():
+        if key == "final_capitulation":
+            continue
         for pattern in tactic["patterns"]:
             if re.search(pattern, text):
                 return {"key": key, "label": tactic["label"], "counter": tactic["counter"]}

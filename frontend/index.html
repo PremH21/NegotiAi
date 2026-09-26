@@ -111,6 +111,30 @@
   .intro-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; margin-bottom: 24px; }
   .intro-card p.lead { color: #c7cbe8; font-size: 14.5px; margin: 0 0 12px; }
   .intro-card ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 13.5px; line-height: 1.9; }
+
+  .engine-badge {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11px; padding: 4px 11px;
+    border-radius: 20px; margin-left: 10px; font-weight: 600; letter-spacing: 0.02em;
+    border: 1px solid var(--line); color: var(--muted);
+  }
+  .engine-badge.llm { color: #7ee3a8; border-color: #2a5a44; background: rgba(61,220,132,0.08); }
+  .engine-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .engine-badge.llm .dot { animation: livepulse 1.4s ease-in-out infinite; }
+  @keyframes livepulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  .thinking-row { display: flex; margin: 10px 0; }
+  .thinking-row.cp { justify-content: flex-end; }
+  .thinking-bubble {
+    padding: 13px 18px; border-radius: 14px; display: inline-flex; gap: 5px; align-items: center;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--line);
+  }
+  .thinking-bubble span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: bounceDot 1s infinite ease-in-out; }
+  .thinking-bubble span:nth-child(2) { animation-delay: .15s; }
+  .thinking-bubble span:nth-child(3) { animation-delay: .3s; }
+  @keyframes bounceDot { 0%, 60%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+  .tactic-badge { transition: transform .2s; }
+  .bubble.cp:hover .tactic-badge { transform: scale(1.04); }
 </style>
 </head>
 <body>
@@ -127,6 +151,7 @@
   </div>
   <div id="healthIndicator">
     <span id="healthDot"></span><span id="healthText">checking backend...</span>
+    <span class="engine-badge" id="engineBadge" style="display:none;"><span class="dot"></span><span id="engineBadgeText"></span></span>
   </div>
 </nav>
 
@@ -142,11 +167,11 @@
 
 <div class="container">
   <div class="intro-card">
-    <p class="lead">Live demo — Team Kindralis, TSM·TECHNOVA 2026</p>
+    <p class="lead">Live demo</p>
     <ul>
       <li>Multi-turn negotiation loop: Plan → Act → Observe → Adapt</li>
       <li>Live tactic detection & counter-strategy on every company reply</li>
-      <li>Same engine works across subscriptions, billing, and insurance — pick a domain below</li>
+      <li>One engine, <span id="domainCount">20+</span> real-world domains — subscriptions, insurance, travel, rentals, billing, and more — pick one below</li>
     </ul>
   </div>
 
@@ -191,14 +216,25 @@ let autoDemoRunning = false;
 async function checkHealth() {
   const dot = document.getElementById("healthDot");
   const text = document.getElementById("healthText");
+  const badge = document.getElementById("engineBadge");
+  const badgeText = document.getElementById("engineBadgeText");
   try {
     const r = await fetch(`${API}/api/health`);
     const d = await r.json();
     dot.className = d.llm_mode ? "ok" : "off";
-    text.textContent = d.llm_mode ? `Backend online — LLM mode (${d.llm_mode})` : "Backend online — offline/zero-cost mode";
+    text.textContent = "Agent ready";
+    badge.style.display = "inline-flex";
+    if (d.llm_mode) {
+      badge.className = "engine-badge llm";
+      badgeText.textContent = `Live LLM reasoning (${d.llm_mode})`;
+    } else {
+      badge.className = "engine-badge";
+      badgeText.textContent = "Rule-based engine";
+    }
   } catch (e) {
     dot.className = "";
     text.textContent = "Backend not reachable — start it with: uvicorn backend.main:app --port 8000";
+    badge.style.display = "none";
   }
 }
 
@@ -213,6 +249,8 @@ async function loadDomains() {
       opt.value = key; opt.textContent = val.title;
       sel.appendChild(opt);
     }
+    const countEl = document.getElementById("domainCount");
+    if (countEl) countEl.textContent = Object.keys(d).length;
   } catch (e) {
     sel.innerHTML = '<option value="">Backend offline</option>';
   }
@@ -254,17 +292,27 @@ async function runNegotiation() {
 
   const box = document.getElementById("transcript");
   for (const turn of data.transcript) {
+    const isCP = turn.speaker === "Company Agent";
     await animateStep(turn.speaker === "Negotiation Agent" ? (turn.tactic ? "adapt" : "plan") : "act");
+
+    const thinkRow = document.createElement("div");
+    thinkRow.className = "thinking-row " + (isCP ? "cp" : "");
+    thinkRow.innerHTML = `<div class="thinking-bubble"><span></span><span></span><span></span></div>`;
+    box.appendChild(thinkRow);
+    box.scrollIntoView({behavior: "smooth", block: "end"});
+    await sleep(450 + Math.random() * 350);
+    thinkRow.remove();
+
     const row = document.createElement("div");
-    row.className = "bubble-row " + (turn.speaker === "Company Agent" ? "cp" : "");
+    row.className = "bubble-row " + (isCP ? "cp" : "");
     const bubble = document.createElement("div");
-    bubble.className = "bubble " + (turn.speaker === "Company Agent" ? "cp" : "agent");
+    bubble.className = "bubble " + (isCP ? "cp" : "agent");
     bubble.innerHTML = `<span class="who">${turn.speaker}</span>${turn.text}` +
       (turn.tactic ? `<div class="tactic-badge">⚡ ${turn.tactic}</div>` : "");
     row.appendChild(bubble);
     box.appendChild(row);
     box.scrollIntoView({behavior: "smooth", block: "end"});
-    await sleep(500);
+    await sleep(300);
   }
 
   const o = data.outcome;
