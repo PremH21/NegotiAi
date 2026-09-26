@@ -88,8 +88,13 @@ Full deployment (GitHub + free public URL): see **DEPLOYMENT.md**
 | `backend/main.py` | FastAPI + SQLite; REST API and history dashboard |
 | `frontend/index.html` | Web demo (zero build step — no Node required) |
 | `app.py` | Streamlit demo (offline fallback) |
-| `test_engine.py` | Validation suite |
+| `test_engine.py` | Validation suite (17 tests) |
+| `ml_classifier.py` + `tactic_training_data.py` | Real trained ML classifier — honest cross-validated accuracy |
+| `ML_CLASSIFIER.md` | Honest ML accuracy numbers, what's real vs. roadmap |
+| `BUSINESS_MODEL.md` | Dual B2C/B2B revenue model, INR pricing, payment methods |
 | `DEPLOYMENT.md` | GitHub + free public deployment guide |
+| `GRAND_FINALE_PREP.md` | GTM strategy, criterion-by-criterion prep, rehearsed jury Q&A |
+| `HANDOFF.md` | **Read first if you're a new session/teammate** — project state, what's tested vs. not |
 
 ---
 
