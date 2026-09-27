@@ -12,6 +12,7 @@ natural language, and silently falls back to the template on any error
 
 import os
 import random
+import requests
 from tactics import detect_tactic, COUNTER_STRATEGY_TEXT
 
 # ---- Optional LLM layer -----------------------------------------------
@@ -22,7 +23,18 @@ def _try_init_llm():
     """Attempt to initialize an LLM client. Never raises."""
     global LLM_MODE, _client
     try:
-        if os.environ.get("ANTHROPIC_API_KEY"):
+        if os.environ.get("GROQ_API_KEY"):
+            import openai
+            _client = openai.OpenAI(
+                api_key=os.environ["GROQ_API_KEY"],
+                base_url="https://api.groq.com/openai/v1",
+            )
+            LLM_MODE = "groq"
+        elif os.environ.get("GEMINI_API_KEY"):
+            # Google's Gemini API has a free tier (no card required) --
+            # called via plain REST so no extra SDK dependency is needed.
+            LLM_MODE = "gemini"
+        elif os.environ.get("ANTHROPIC_API_KEY"):
             import anthropic
             _client = anthropic.Anthropic()
             LLM_MODE = "anthropic"
@@ -45,11 +57,37 @@ def _llm_paraphrase(system_role: str, instruction: str, fallback_text: str) -> s
             resp = _client.messages.create(
                 model="claude-haiku-4-5-20251001",
                 max_tokens=120,
-                temperature=0.9,
                 system=system_role,
                 messages=[{"role": "user", "content": instruction}],
             )
             text = resp.content[0].text.strip()
+            return text if text else fallback_text
+        elif LLM_MODE == "groq":
+            resp = _client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                max_tokens=120,
+                temperature=0.9,
+                messages=[
+                    {"role": "system", "content": system_role},
+                    {"role": "user", "content": instruction},
+                ],
+            )
+            text = resp.choices[0].message.content.strip()
+            return text if text else fallback_text
+        elif LLM_MODE == "gemini":
+            resp = requests.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+                params={"key": os.environ["GEMINI_API_KEY"]},
+                json={
+                    "system_instruction": {"parts": [{"text": system_role}]},
+                    "contents": [{"parts": [{"text": instruction}]}],
+                    "generationConfig": {"temperature": 0.9, "maxOutputTokens": 120},
+                },
+                timeout=8,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
             return text if text else fallback_text
         elif LLM_MODE == "openai":
             resp = _client.chat.completions.create(

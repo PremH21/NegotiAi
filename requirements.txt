@@ -7,6 +7,7 @@ scikit-learn>=1.3
 ## Optional: natural-language LLM layer
 anthropic>=0.30.0
 openai>=1.30.0
+requests>=2.27
 
 ## Optional: advanced backend + real LangGraph orchestration
 fastapi>=0.110
