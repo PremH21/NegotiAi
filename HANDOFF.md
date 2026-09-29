@@ -264,3 +264,23 @@ cleanly. Optional fix (safe, data-only, no restart needed):
 - TODO: verify Render GROQ_API_KEY + live URL is generative; time a full run
   (MAX_TURNS 8 -> 6 if slow); backup video; rehearse; write pitch (11 criteria).
 - Rotate Groq key after the ceremony (exposed in chat).
+
+---
+
+## UPDATE (Sep 30, pre-showcase) - read first
+
+Verified locally: generative mode is real (no 401s, varied dialogue). Agent-side
+resolution check applied in generative_engine.py (RESOLUTION_PHRASES,
+_agent_declares_resolution); prompt asks for exact sentence "The matter is resolved."
+MAX_TURNS still 8. Tests: 22 passing. Tag demo-safe = last pushed-known-good state.
+
+Known limitation: company-side final_capitulation keyword check in tactics.py can
+false-positive on stalling replies containing "confirm"/"processed" (seen in 1 of 3
+runs). Cleaner fix (not applied): remove the company-side stop block in
+generative_engine.py so only the agent's statement resolves; then update any tests
+asserting the old behavior.
+
+Remaining: 1) git status / push. 2) Render: valid GROQ_API_KEY, redeploy, live test,
+check logs for 401. 3) Time a full live run; lower MAX_TURNS to 6 if slow.
+4) Backup video, warm up Render before presenting. 5) Rotate Groq key after event.
+Never present a "template fallback" run as live AI.
