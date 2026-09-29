@@ -319,6 +319,7 @@ async function runNegotiation() {
   document.getElementById("outcome").innerHTML = `
     <div class="outcome-card">
       <h3 class="display">${o.resolved ? "Goal Achieved" : "Best Achievable Outcome Reached"}</h3>
+      <div style="font-size:12px;margin-bottom:8px;font-weight:600;">${o.mode === "generative" ? "🧠 Live generative AI — every line written by the model this run" : "📋 Deterministic mode — scripted escalation ladder"}</div>
       <div class="grid2">
         <div class="stat"><b>${o.turns}</b>Turns taken</div>
         <div class="stat"><b>₹${o.estimated_value_saved}</b>Value protected</div>
