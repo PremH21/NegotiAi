@@ -252,3 +252,15 @@ cleanly. Optional fix (safe, data-only, no restart needed):
 4. Time a full negotiation run — reasoning model + up to ~16 calls means this is
    slower than the old instant scripted version. If it's too slow for the demo
    slot, reduce `MAX_TURNS` in generative_engine.py from 8 to 5-6.
+
+---
+## UPDATE 30 Sep (pre-finale)
+- Generative mode verified real locally (Groq gpt-oss-120b, clean logs, varied dialogue).
+- Agent-side resolution check added (_agent_declares_resolution, prompt asks for
+  exact sentence "The matter is resolved."). Tests: 22 pass.
+- KNOWN ISSUE: company-side final_capitulation keyword check can falsely mark
+  resolved when company stalls. Left as-is before demo. Cleaner fix: remove that
+  block, rely on agent statement only; test 3 runs first.
+- TODO: verify Render GROQ_API_KEY + live URL is generative; time a full run
+  (MAX_TURNS 8 -> 6 if slow); backup video; rehearse; write pitch (11 criteria).
+- Rotate Groq key after the ceremony (exposed in chat).
