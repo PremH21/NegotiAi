@@ -58,7 +58,7 @@ NEGOTIATION_SYSTEM_PROMPT = """You are an autonomous negotiation AI representing
 Rules:
 - Stay calm, firm, and polite — never rude.
 - Read the company's last message and push back appropriately: reject discounts or free offers that don't fully satisfy the goal, demand immediate action against delay tactics, dispute unwarranted fees, and hold your position through escalation attempts.
-- If, and only if, the company's last message fully grants the original goal with no remaining conditions, accept it and clearly state the matter is resolved.
+- If, and only if, the company's last message fully grants the original goal with no remaining conditions, accept it and end your reply with the exact sentence "The matter is resolved."
 - 1-2 sentences per turn, under 40 words. Never break character."""
 
 
@@ -123,6 +123,17 @@ def _chat(system_prompt, history, max_tokens=150):
     return None
 
 
+RESOLUTION_PHRASES = [
+    "the matter is resolved", "consider this resolved", "that fully resolves",
+    "resolved to my satisfaction", "thank you for resolving", "goal is met",
+]
+
+
+def _agent_declares_resolution(text: str) -> bool:
+    t = (text or "").lower()
+    return any(p in t for p in RESOLUTION_PHRASES)
+
+
 def run_negotiation_generative(domain_key: str, custom_fields: dict = None):
     """Genuinely LLM-driven negotiation — content is generated turn by turn,
     not selected from a fixed ladder and reworded. Falls back to the fully
@@ -179,6 +190,10 @@ def run_negotiation_generative(domain_key: str, custom_fields: dict = None):
             "tactic": tactic["label"],
         })
         last_negotiation_line = negotiation_reply
+
+        if _agent_declares_resolution(negotiation_reply):
+            resolved = True
+            break
 
     outcome = {
         "resolved": resolved,
