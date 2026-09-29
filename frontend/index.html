@@ -100,7 +100,6 @@
   .outcome-card h3.display { margin: 0 0 10px; font-size: 22px; font-weight: 600; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
   .stat { background: rgba(0,0,0,0.08); padding: 11px 13px; border-radius: 9px; }
-  .badge { display: inline-block; font-size: 12px; font-weight: 600; background: rgba(0,0,0,0.08); padding: 4px 10px; border-radius: 999px; margin-bottom: 8px; }
   .stat b { display: block; font-size: 21px; font-family: 'Fraunces', serif; }
   .history-panel { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--line); }
   .history-panel h2 { font-size: 15px; color: #cfd3ef; font-weight: 600; font-family: 'Inter', sans-serif; }
@@ -320,7 +319,7 @@ async function runNegotiation() {
   document.getElementById("outcome").innerHTML = `
     <div class="outcome-card">
       <h3 class="display">${o.resolved ? "Goal Achieved" : "Best Achievable Outcome Reached"}</h3>
-      ${o.mode === "generative" ? '<div class="badge">🧠 Live generative AI</div>' : ""}
+      <div style="font-size:12px;margin-bottom:8px;font-weight:600;">${o.mode === "generative" ? "🧠 Live generative AI — every line written by the model this run" : "📋 Deterministic mode — scripted escalation ladder"}</div>
       <div class="grid2">
         <div class="stat"><b>${o.turns}</b>Turns taken</div>
         <div class="stat"><b>₹${o.estimated_value_saved}</b>Value protected</div>

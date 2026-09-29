@@ -33,6 +33,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))  # import sibling m
 
 from domains import DOMAINS
 from orchestrator import run_negotiation as run_negotiation_offline
+from generative_engine import run_negotiation_generative
 
 DB_PATH = Path(__file__).resolve().parent / "negotiai.db"
 
@@ -70,6 +71,9 @@ init_db()
 
 class RunRequest(BaseModel):
     domain_key: str
+    mode: str = "auto"  # "auto" (generative if an LLM is configured, else deterministic),
+                        # "generative" (force it, errors if no LLM configured),
+                        # "deterministic" (force the rule-based ladder, ignores any LLM)
 
 
 @app.get("/api/health")
@@ -89,12 +93,29 @@ def run_negotiation(req: RunRequest):
         raise HTTPException(status_code=400, detail="Unknown domain")
 
     from agents import LLM_MODE
-    if LLM_MODE:
-        from generative_engine import run_negotiation_generative
-        transcript, outcome = run_negotiation_generative(req.domain_key)
-    else:
+
+    if req.mode == "deterministic":
         transcript, outcome = run_negotiation_offline(req.domain_key)
         outcome["mode"] = "deterministic"
+    elif req.mode == "generative":
+        if not LLM_MODE:
+            raise HTTPException(
+                status_code=400,
+                detail="Generative mode requested but no LLM provider is configured "
+                       "(set GROQ_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY)."
+            )
+        transcript, outcome = run_negotiation_generative(req.domain_key)
+        # If the generative call failed mid-negotiation, run_negotiation_generative
+        # silently falls back — reflect that honestly rather than claiming generative.
+        outcome.setdefault("mode", "deterministic")
+    else:  # "auto"
+        if LLM_MODE:
+            transcript, outcome = run_negotiation_generative(req.domain_key)
+            outcome.setdefault("mode", "deterministic")
+        else:
+            transcript, outcome = run_negotiation_offline(req.domain_key)
+            outcome["mode"] = "deterministic"
+
     session_id = str(uuid.uuid4())
 
     conn = sqlite3.connect(DB_PATH)
