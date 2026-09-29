@@ -139,3 +139,116 @@ loop inaccurately — it needs a rewrite to match this file's table.
 - **Update this file's "Current status" line** before ending your session,
   so the next person (or next Claude session) doesn't have to reconstruct
   what happened by reading git history.
+
+---
+
+## UPDATE — Generative mode added (root-cause fix for "it looks templated")
+
+**Diagnosis:** `agents.py` `_llm_paraphrase()` told the LLM to "keep this exact substance" of a
+pre-written line from the fixed 4-step ladder in `domains.py`. So every domain was the same
+script (discount → escalate → fee threat → concede) with reworded text. Switching LLM provider
+could never fix that — the LLM never decided content.
+
+**Fix:** new `generative_engine.py` — two LLM personas hold a real multi-turn conversation
+(company bot chooses its own tactics from conversation history; negotiation agent decides its
+own counter). The existing tactic detector runs on the *generated* company text (drives the
+tactic badge and detects resolution). `orchestrator.py` / ladder are UNCHANGED and remain the
+fallback.
+- `backend/main.py`: `POST /api/negotiate/run` accepts `mode`: `auto` (default; generative if an
+  LLM key is set, else deterministic), `generative`, `deterministic`. `outcome.mode` always
+  reports the mode that ACTUALLY ran (falls back honestly if an API call fails mid-run).
+- `frontend/index.html`: outcome card shows "Live generative AI" vs "Deterministic mode".
+- `test_engine.py`: 22 tests (mocked-LLM tests cover generative path + both fallbacks).
+
+**VERIFIED:** 22 tests pass; fallback paths; routing logic.
+**NOT VERIFIED (needs a machine with internet + key):** real multi-turn calls to Gemini/Groq/
+Anthropic. Provider call patterns are copied from the already-working single-shot code, but
+the multi-turn flow has never hit a live API. First action for the next session: run a
+negotiation with mode=generative on the deployed backend and record the result here.
+**Known risk:** free-tier rate limits (a run makes up to ~16 calls). On a 429 the run falls back
+to deterministic and the badge will say so. Prefer Groq (higher free limits) as primary.
+**Honest limitation to state to judges:** tactic *detection* is still rule-based/ML hybrid
+(76–79% CV on synthetic data); the *dialogue* is now genuinely LLM-generated.
+
+---
+
+## UPDATE — Generative mode: root cause found and FIXED
+
+**Bug:** `generative_engine.py` used Groq model `llama-3.3-70b-versatile`, which no
+longer exists on Groq's API (confirmed via `GET /openai/v1/models` — not in the
+account's model list at all). Every call was failing with `404 model_not_found`,
+silently falling back to the deterministic path for the ENTIRE negotiation. This is
+why generative mode looked identical to the old scripted demo — it was quietly never
+running.
+
+**Fix applied and confirmed working via curl:**
+- Model changed to `openai/gpt-oss-120b` in both `agents.py` and
+  `generative_engine.py` (`sed -i '' 's/llama-3.3-70b-versatile/openai\/gpt-oss-120b/g' agents.py generative_engine.py`)
+- Added `reasoning_effort="low"` to the Groq call in `generative_engine.py` — this
+  model is a reasoning model that "thinks" before answering, consuming the same
+  token budget as the reply itself. Without this, and without enough max_tokens,
+  replies came back blank or cut off mid-word.
+- Raised `max_tokens` for the Groq call: company turn 900, negotiation-agent turn 700
+  (was 120/100 — far too low for a reasoning model).
+
+**CONFIRMED via curl** (`mode:"generative"`, `bill_dispute` domain): fully natural,
+non-repeating dialogue on both sides, resolved in 6 turns (vs. the fixed 9 the old
+scripted ladder always took), no truncation.
+
+**NOT YET CONFIRMED as of this note** (next session should do these, in order):
+1. Sweep 3-4 more domains via curl, watch for truncated/empty replies — if any
+   appear, raise max_tokens further (900/700 has headroom to go higher, it's free).
+2. Test through the actual browser at localhost:5500 (hard refresh Cmd+Shift+R
+   first — a stale cached frontend was mistaken for a backend bug earlier this
+   session, wasted significant time). Confirm the "🧠 Live generative AI" badge
+   renders on the outcome card.
+3. `git add agents.py generative_engine.py && git commit -m "..." && git push`
+4. Add `GROQ_API_KEY` (the real one, starts with `gsk_`, not the `AQ.`-prefixed
+   Google AI Studio key that caused an earlier 401 — those got mixed up once
+   already this session) to Render's Environment tab. Render auto-redeploys.
+5. Test the live Netlify+Render URL end to end — that's what judges will actually see.
+
+**Known risk to flag before demoing:** a full generative negotiation makes up to
+~16 Groq API calls with reasoning overhead — meaningfully slower than the old
+instant scripted version. Time a full run. If it's too slow for the demo window,
+`MAX_TURNS` in `generative_engine.py` (currently 8) can be reduced to 5-6 as a
+safety valve — this shortens worst-case negotiations without touching the
+model/token fixes above.
+
+**Environment gotchas hit repeatedly this session, avoid repeating them:**
+- A fresh terminal tab has NO env vars and NO activated venv from other tabs.
+  Always run this as ONE pasted block, every time, never split across separate
+  commands: `cd ~/negotiai && source venv/bin/activate && export GROQ_API_KEY=... && uvicorn backend.main:app --port 8000`
+- `Address already in use` on port 8000 means an old server is still alive in
+  another tab — `lsof -ti:8000 | xargs kill -9` clears it before restarting.
+- The browser aggressively caches `frontend/index.html` — after ANY frontend
+  change, hard refresh (Cmd+Shift+R) before concluding something didn't work.
+
+---
+
+## UPDATE — Generative mode CONFIRMED working end-to-end in real browser
+
+Tested live via http://localhost:5500 across multiple domains (gym membership,
+subscription downgrade, billing dispute). Results: genuinely varied, non-repeating,
+naturally-written dialogue on both sides every run. Correct tactic badges rendered
+on real LLM-generated text (Discount Offer, Free Period/Bonus, Escalation to
+Specialist all correctly detected). This is real, not scripted — confirmed by eye,
+not just by the "mode":"generative" field.
+
+**Minor known polish item (not blocking):** tactic detector's final_capitulation
+regex doesn't yet catch natural resolution phrasings like "I've just completed the
+downgrade... effective immediately" — conversation sometimes runs a couple of extra
+pleasant-but-unnecessary turns after the real resolution instead of stopping
+cleanly. Optional fix (safe, data-only, no restart needed):
+`sed -i '' 's/r"has been cancelled", r"approved in full", r"refund", r"fully refunded"/r"has been cancelled", r"approved in full", r"refund", r"fully refunded", r"i.ve (just )?(completed|applied|processed|done)", r"effective immediately"/' tactics.py`
+
+**REMAINING STEPS, in order, next session should do these:**
+1. `git add agents.py generative_engine.py tactics.py && git commit -m "Fix Groq model to gpt-oss-120b, raise token limits, broaden resolution detection" && git push`
+2. Add `GROQ_API_KEY` (the real `gsk_...` one) to Render dashboard → negotiai-backend
+   → Environment tab. Render auto-redeploys on save.
+3. Wait for Render redeploy to finish, then test the LIVE Netlify+Render URL
+   end-to-end (not just localhost) — confirm generative mode works there too,
+   since Render's environment is separate from local.
+4. Time a full negotiation run — reasoning model + up to ~16 calls means this is
+   slower than the old instant scripted version. If it's too slow for the demo
+   slot, reduce `MAX_TURNS` in generative_engine.py from 8 to 5-6.
