@@ -218,5 +218,53 @@ class TestLangGraphOrchestrator(unittest.TestCase):
             self.assertNotEqual(speakers[i], speakers[i - 1], "Speakers should alternate")
 
 
+class TestGenerativeEngine(unittest.TestCase):
+    """generative_engine.py: falls back safely without an LLM. Live-LLM behavior
+    can only be verified on a machine with a real key (see HANDOFF.md)."""
+
+    def test_falls_back_to_deterministic_when_no_llm_configured(self):
+        import agents, generative_engine
+        original = generative_engine.LLM_MODE
+        generative_engine.LLM_MODE = False
+        try:
+            transcript, outcome = generative_engine.run_negotiation_generative("gym_membership")
+        finally:
+            generative_engine.LLM_MODE = original
+        self.assertTrue(outcome["resolved"])
+        self.assertNotEqual(outcome.get("mode"), "generative")
+
+    def test_falls_back_when_llm_call_fails(self):
+        import generative_engine
+        orig_mode, orig_chat = generative_engine.LLM_MODE, generative_engine._chat
+        generative_engine.LLM_MODE = "gemini"
+        generative_engine._chat = lambda *a, **k: None  # simulate API failure
+        try:
+            transcript, outcome = generative_engine.run_negotiation_generative("gym_membership")
+        finally:
+            generative_engine.LLM_MODE, generative_engine._chat = orig_mode, orig_chat
+        self.assertTrue(outcome["resolved"])
+        self.assertNotEqual(outcome.get("mode"), "generative")
+
+    def test_generative_path_produces_non_scripted_dialogue_when_llm_returns_text(self):
+        import generative_engine
+        orig_mode, orig_chat = generative_engine.LLM_MODE, generative_engine._chat
+        replies = iter([
+            "We'd hate to lose you — how about a small credit?",
+            "I understand, but please cancel today.",
+            "Let me check with my supervisor first.",
+            "Cancelling now is my request, please confirm.",
+            "Fine. Your membership has been cancelled, confirmed.",
+        ])
+        generative_engine.LLM_MODE = "gemini"
+        generative_engine._chat = lambda *a, **k: next(replies)
+        try:
+            transcript, outcome = generative_engine.run_negotiation_generative("gym_membership")
+        finally:
+            generative_engine.LLM_MODE, generative_engine._chat = orig_mode, orig_chat
+        self.assertEqual(outcome["mode"], "generative")
+        self.assertTrue(outcome["resolved"])
+        self.assertIn("supervisor", " ".join(t["text"] for t in transcript))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
