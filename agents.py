@@ -64,7 +64,7 @@ def _llm_paraphrase(system_role: str, instruction: str, fallback_text: str) -> s
             return text if text else fallback_text
         elif LLM_MODE == "groq":
             resp = _client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 max_tokens=120,
                 temperature=0.9,
                 messages=[
