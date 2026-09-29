@@ -47,7 +47,8 @@ TACTIC_LIBRARY = {
     "final_capitulation": {
         "label": "Final Concession",
         "patterns": [r"confirmed", r"processed", r"no further offers", r"has been cancelled",
-                     r"approved in full", r"refund", r"fully refunded"],
+                     r"approved in full", r"refund", r"fully refunded",
+                     r"i.ve (just )?(completed|applied|processed|done)", r"effective immediately"],
         "counter": "confirm_and_close",
     },
 }
