@@ -284,3 +284,22 @@ Remaining: 1) git status / push. 2) Render: valid GROQ_API_KEY, redeploy, live t
 check logs for 401. 3) Time a full live run; lower MAX_TURNS to 6 if slow.
 4) Backup video, warm up Render before presenting. 5) Rotate Groq key after event.
 Never present a "template fallback" run as live AI.
+
+---
+
+## UPDATE (Sep 30, 2026) - SUPERSEDES "STILL OPEN" and "NOT VERIFIED" above
+
+- Production LLM is Groq openai/gpt-oss-120b (reasoning_effort="low", max_tokens
+  900 company / 700 agent). Old model llama-3.3-70b-versatile was removed by Groq
+  (404, silent fallback to scripted). Live runs verified locally AND on Render:
+  no 401s, no template fallback, varied dialogue, timing fine.
+- Resolution: RESOLUTION_PHRASES + _agent_declares_resolution in generative_engine.py
+  (prompt asks for exact sentence "The matter is resolved."), commit ee37dd2.
+  Known limitation: company-side final_capitulation keywords can false-resolve on a
+  stalling reply containing "confirm"/"processed" (seen 1 in 3 runs). Cleaner fix
+  (not applied): remove the company-side stop block so only the agent statement resolves.
+- Ignore the old Anthropic-key "STILL OPEN" note; it no longer applies.
+- Remaining (content only): fix deck Slide 4 (no Ollama; describe hosted Groq
+  generative dialogue + deterministic fallback), real user survey, GTM slide,
+  state that ML accuracy is on synthetic data. Rotate the Groq key after the event.
+- Never present a fallback run as live AI.
